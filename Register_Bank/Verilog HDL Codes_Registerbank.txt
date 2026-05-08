@@ -1,0 +1,72 @@
+Registerbank.v: 
+ 
+`timescale 1ns/1ns 
+module reg_bank( 
+input clk, rst, we, 
+input [2:0] waddr, raddr1, raddr2, 
+input [7:0] wdata, 
+output [7:0] rdata1, rdata2 
+); 
+reg [7:0] regs[7:0]; 
+integer i; 
+always @(posedge clk or posedge rst) begin 
+if (rst) 
+for(i=0;i<8;i=i+1) regs[i] <= 0; 
+else if (we) 
+regs[waddr] <= wdata; 
+end 
+assign rdata1 = regs[raddr1]; 
+assign rdata2 = regs[raddr2]; 
+endmodule 
+
+Testbench:
+
+`timescale 1ns/1ns 
+module tb_regbank; 
+reg clk=0, rst, we; 
+reg [2:0] waddr, raddr1, raddr2; 
+reg [7:0] wdata; 
+wire [7:0] rdata1, rdata2; 
+reg_bank uut(clk,rst,we,waddr,raddr1,raddr2,wdata,rdata1,rdata2); 
+always #5 clk=~clk; 
+initial begin 
+rst=1; #10 rst=0; 
+we=1; waddr=2; wdata=8'hAA; #10; 
+raddr1=2; raddr2=2; 
+#20 $finish; 
+end 
+endmodule 
+
+Constraint.sdc: 
+ 
+create_clock -name clk -period 2 -waveform {0 1} [get_ports "clk"] 
+set_clock_transition -rise 0.1 [get_clocks "clk"] 
+set_clock_transition -fall 0.1 [get_clocks "clk"] 
+set_clock_uncertainty 0.01 [get_ports "clk"] 
+set_input_transition 0.12 [all_inputs] 
+set_input_delay -max 0.8 [get_ports "clk"] -clock [get_clocks "clk"] 
+set_input_delay -max 0.8 [get_ports "rst"] -clock [get_clocks "clk"] 
+set_output_delay -max 0.8 [get_ports "count"] -clock [get_clocks "clk"] 
+set_load 0.15 [all_outputs] 
+set_max_fanout 20.00 [current_design] 
+
+Run.tcl:  
+
+set_db init_lib_search_path /home/install/FOUNDRY/digital/90nm/dig/lib/ 
+set_db library slow.lib 
+read_hdl {./reg_bank.v} 
+elaborate 
+read_sdc ./regbank_input.sdc 
+set_db syn_generic_effort medium 
+set_db syn_map_effort medium 
+set_db syn_opt_effort medium 
+syn_generic 
+syn_map 
+syn_opt 
+write_hdl > reg_bank_netlist.v 
+write_sdc > reg_bank_output.sdc 
+report timing > reg_bank_timimg.rpt 
+report power > reg_bank_power.rpt 
+report area > reg_bank_cell.rpt 
+report gates > reg_bank_gates.rpt 
+gui_show 
