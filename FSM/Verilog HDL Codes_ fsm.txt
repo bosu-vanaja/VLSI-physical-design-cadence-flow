@@ -1,0 +1,69 @@
+Verilog HDL fsm.v 
+ 
+`timescale 1ns/1ns 
+module mealy_1011(input clk, rst, x, output reg y); 
+reg [1:0] state, next; 
+always @(posedge clk or posedge rst) 
+if (rst) state <= 0; 
+else state <= next; 
+always @(*) begin 
+case(state) 
+0: next = x ? 1 : 0; 
+1: next = x ? 1 : 2; 
+2: next = x ? 3 : 0; 
+3: next = x ? 1 : 2; 
+endcase 
+end 
+always @(*) begin 
+y = (state==3 && x==1); 
+end 
+endmodule
+
+Testbench:
+
+`timescale 1ns/1ns 
+module tb_mealy; 
+reg clk=0, rst, x; 
+wire y; 
+mealy_1011 uut(clk,rst,x,y); 
+always #5 clk = ~clk; 
+initial begin 
+rst=1; #10 rst=0; 
+x=1; #10 x=0; #10 x=1; #10 x=1; 
+#50 $finish; 
+end 
+endmodule 
+
+Constraint.sdc: 
+
+create_clock -name clk -period 2 -waveform {0 1} [get_ports "clk"] 
+set_clock_transition -rise 0.1 [get_clocks "clk"] 
+set_clock_transition -fall 0.1 [get_clocks "clk"] 
+set_clock_uncertainty 0.01 [get_ports "clk"] 
+set_input_transition 0.12 [all_inputs] 
+set_input_delay -max 0.8 [get_ports "clk"] -clock [get_clocks "clk"] 
+set_input_delay -max 0.8 [get_ports "rst"] -clock [get_clocks "clk"] 
+set_output_delay -max 0.8 [get_ports "count"] -clock [get_clocks "clk"] 
+set_load 0.15 [all_outputs] 
+set_max_fanout 20.00 [current_design]
+
+run.tcl: 
+
+set_db init_lib_search_path /home/install/FOUNDRY/digital/90nm/dig/lib/ 
+set_db library slow.lib 
+read_hdl {./fsm.v} 
+elaborate 
+read_sdc ./fsm_input.sdc 
+set_db syn_generic_effort medium 
+set_db syn_map_effort medium 
+set_db syn_opt_effort medium 
+syn_generic 
+syn_map 
+syn_opt 
+write_hdl > fsm_netlist.v 
+write_sdc > fsm_output.sdc 
+report timing >fsm_timimg.rpt 
+report power > fsm_power.rpt
+report area > fsm_cell.rpt 
+report gates >fsm_gates.rpt 
+gui_show
