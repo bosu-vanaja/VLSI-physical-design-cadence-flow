@@ -1,0 +1,67 @@
+Pipeline.v: 
+ 
+`timescale 1ns/1ns 
+module pipeline(input clk, rst, 
+input [7:0] a,b, 
+output reg [7:0] y); 
+reg [7:0] r1, r2; 
+always @(posedge clk or posedge rst) begin 
+if (rst) begin 
+r1<=0; r2<=0; y<=0; 
+end else begin 
+r1 <= a + b; // stage 1 
+r2 <= r1; // stage 2 
+y <= r2; // stage 3 
+end 
+end 
+endmodule
+ 
+Testbench:
+
+`timescale 1ns/1ns 
+module tb_pipeline; 
+reg clk=0, rst; 
+reg [7:0] a,b;
+wire [7:0] y; 
+pipeline uut(clk,rst,a,b,y); 
+always #5 clk=~clk; 
+initial begin 
+rst=1; #10 rst=0; 
+a=5; b=3; 
+#50 $finish; 
+end 
+endmodule 
+
+Constraint.sdc: 
+
+create_clock -name clk -period 2 -waveform {0 1} [get_ports "clk"] 
+set_clock_transition -rise 0.1 [get_clocks "clk"] 
+set_clock_transition -fall 0.1 [get_clocks "clk"] 
+set_clock_uncertainty 0.01 [get_ports "clk"] 
+set_input_transition 0.12 [all_inputs] 
+set_input_delay -max 0.8 [get_ports "clk"] -clock [get_clocks "clk"] 
+set_input_delay -max 0.8 [get_ports "rst"] -clock [get_clocks "clk"] 
+set_output_delay -max 0.8 [get_ports "count"] -clock [get_clocks "clk"] 
+set_load 0.15 [all_outputs] 
+set_max_fanout 20.00 [current_design]
+
+Run.tcl: 
+
+set_db init_lib_search_path /home/install/FOUNDRY/digital/90nm/dig/lib/ 
+set_db library slow.lib 
+read_hdl {./pipeline.v} 
+elaborate 
+read_sdc ./pipeline_input.sdc 
+set_db syn_generic_effort medium 
+set_db syn_map_effort medium 
+set_db syn_opt_effort medium 
+syn_generic 
+syn_map 
+syn_opt 
+write_hdl > pipeline_netlist.v 
+write_sdc > pipeline_output.sdc 
+report timing > pipieline_timimg.rpt 
+report power > pipeline_power.rpt 
+report area > pipeline_cell.rpt 
+report gates > pipeline_gates.rpt 
+gui_show
