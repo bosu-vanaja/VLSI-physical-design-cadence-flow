@@ -1,0 +1,76 @@
+Verilog HDL Code LFSR.v 
+ 
+`timescale 1ns/1ns 
+module lfsr(input clk, input rst, output reg [3:0] lfsr_out); 
+wire feedback; 
+assign feedback = lfsr_out[3] ^ lfsr_out[2]; 
+always @(posedge clk or posedge rst)//synchronous clock asynchronous reset 
+begin 
+if(rst) 
+lfsr_out <= 4'b0001; // seed 
+else 
+lfsr_out <= {lfsr_out[2:0], feedback}; 
+end 
+endmodule 
+
+TestBench(lfsr_test.v) 
+
+`timescale 1ns/1ps 
+module lfsr_test; 
+reg clk; 
+reg rst; 
+wire [3:0] lfsr_out; 
+lfsr uut(.clk(clk),.rst(rst),.lfsr_out(lfsr_out)); 
+initial 
+begin 
+clk = 0; 
+forever #5 clk = ~clk; 
+end 
+initial 
+begin 
+rst = 1; 
+#10 rst = 0; 
+#200 $finish; 
+end 
+endmodule
+
+Constraints_input.sdc 
+
+create_clock -name clk -period 2 -waveform {0 1} [get_ports "clk"] 
+set_clock_transition -rise 0.1 [get_clocks "clk"] 
+set_clock_transition -fall 0.1 [get_clocks "clk"] 
+set_clock_uncertainty 0.01 [get_ports "clk"] 
+set_input_delay -max 1.0 [get_ports "rst"] -clock [get_clocks "clk"] 
+set_output_delay -max 1.0 [get_ports "out"] -clock [get_clocks "clk"] 
+                          OR 
+create_clock -name clk -period 2 -waveform {0 1} [get_ports "clk"] 
+set_clock_transition -rise 0.1 [get_clocks "clk"] 
+set_clock_transition -fall 0.1 [get_clocks "clk"] 
+set_clock_uncertainty 0.01 [get_ports "clk"] 
+set_input_transition 0.12 [all_inputs] 
+set_input_delay -max 0.8 [get_ports "clk"] -clock [get_clocks "clk"] 
+set_input_delay -max 0.8 [get_ports "rst"] -clock [get_clocks "clk"] 
+set_output_delay -max 0.8 [get_ports "count"] -clock [get_clocks "clk"] 
+set_load 0.15 [all_outputs] 
+set_max_fanout 20.00 [current_design] 
+
+run.tcl
+ 
+set_db init_lib_search_path /home/install/FOUNDRY/digital/90nm/dig/lib/ 
+set_db library slow.lib 
+read_hdl {./lfsr.v} 
+elaborate 
+read_sdc ./constraints_input.sdc 
+set_db syn_generic_effort medium 
+set_db syn_map_effort medium 
+set_db syn_opt_effort medium 
+syn_generic 
+syn_map 
+syn_opt 
+write_hdl > lfsr_netlist.v 
+write_sdc > lfsr_output.sdc 
+report timing > lfsr_timing.rpt 
+report power > lfsr_power.rpt 
+report area > lfsr_area.rpt 
+report gates > lfsr_gates.rpt 
+gui_show
